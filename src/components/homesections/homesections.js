@@ -6,12 +6,15 @@ import ServerConnections from 'lib/jellyfin-apiclient/ServerConnections';
 import Dashboard from 'utils/dashboard';
 import { queryClient } from 'utils/query/queryClient';
 
+import { CustomHomeSectionType, getHomeLayout } from './homeLayout';
 import { loadRecordings } from './sections/activeRecordings';
+import { loadContinueWatching } from './sections/continueWatching';
 import { loadLibraryButtons } from './sections/libraryButtons';
 import { loadLibraryTiles } from './sections/libraryTiles';
 import { loadLiveTV } from './sections/liveTv';
 import { loadNextUp } from './sections/nextUp';
 import { loadRecentlyAdded } from './sections/recentlyAdded';
+import { loadRecommendations } from './sections/recommendations';
 import { loadResume } from './sections/resume';
 
 import 'elements/emby-button/paper-icon-button-light';
@@ -30,15 +33,7 @@ export function getDefaultSection(index) {
 }
 
 function getAllSectionsToShow(userSettings) {
-    const sections = [];
-    for (let i = 0, length = MAX_SECTIONS; i < length; i++) {
-        let section = userSettings.get('homesection' + i) || getDefaultSection(i);
-        if (section === 'folders') {
-            section = getDefaultSection(0);
-        }
-
-        sections.push(section);
-    }
+    const sections = getHomeLayout(userSettings).slice(0, MAX_SECTIONS);
 
     // Ensure libraries are visible in TV layout
     if (
@@ -165,6 +160,12 @@ function loadSection(page, apiClient, user, userSettings, userViews, section, in
             break;
         case HomeSectionType.ResumeBook:
             loadResume(elem, apiClient, 'HeaderContinueReading', 'Book', userSettings, options);
+            break;
+        case CustomHomeSectionType.ContinueWatching:
+            loadContinueWatching(elem, apiClient, userSettings, options);
+            break;
+        case CustomHomeSectionType.Recommendations:
+            loadRecommendations(elem, apiClient, options);
             break;
         case HomeSectionType.SmallLibraryTiles:
             loadLibraryTiles(elem, userViews, options);
