@@ -1,4 +1,4 @@
-import { HomeSectionType } from 'constants/homeSectionType';
+import { DEFAULT_SECTIONS, HomeSectionType } from 'constants/homeSectionType';
 import type { UserSettings } from 'scripts/settings/userSettings';
 
 /**
@@ -78,8 +78,35 @@ export function toServerSections(layout: HomeRowType[]): HomeSectionType[] {
     return normalizeLayout(sections) as HomeSectionType[];
 }
 
+/**
+ * Picks the layout to show. Without a saved layout, a user who customized the
+ * standard `homesectionN` rows keeps them; everyone else gets the new default.
+ */
+export function resolveHomeLayout(
+    saved: string | null | undefined,
+    legacySections: (string | null | undefined)[]
+): HomeRowType[] {
+    if (saved) return parseHomeLayout(saved);
+
+    const legacy = Array.from({ length: HOME_LAYOUT_LENGTH }, (_, i) => {
+        const serverDefault = DEFAULT_SECTIONS[i] ?? HomeSectionType.None;
+        const value = legacySections[i];
+        // Older clients saved '' for "default" and 'folders' for library tiles.
+        if (!value) return serverDefault;
+        if (value === 'folders') return DEFAULT_SECTIONS[0];
+        return value;
+    });
+
+    const isCustomized = legacy.some((value, i) => value !== (DEFAULT_SECTIONS[i] ?? HomeSectionType.None));
+    return isCustomized ? normalizeLayout(legacy) : [ ...DEFAULT_HOME_LAYOUT ];
+}
+
 export function getHomeLayout(userSettings: UserSettings): HomeRowType[] {
-    return parseHomeLayout(userSettings.get(HOME_LAYOUT_KEY));
+    const legacySections = Array.from(
+        { length: HOME_LAYOUT_LENGTH },
+        (_, i) => userSettings.get(`homesection${i}`)
+    );
+    return resolveHomeLayout(userSettings.get(HOME_LAYOUT_KEY), legacySections);
 }
 
 export function saveHomeLayout(userSettings: UserSettings, rows: string[]) {

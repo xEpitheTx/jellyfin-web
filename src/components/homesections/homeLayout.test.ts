@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { HomeSectionType } from 'constants/homeSectionType';
+import { DEFAULT_SECTIONS, HomeSectionType } from 'constants/homeSectionType';
 
 import {
     CustomHomeSectionType,
     DEFAULT_HOME_LAYOUT,
     HOME_LAYOUT_LENGTH,
     parseHomeLayout,
+    resolveHomeLayout,
     toServerSections
 } from './homeLayout';
 
@@ -55,5 +56,30 @@ describe('toServerSections', () => {
     it('keeps the length fixed when Next Up is inserted into a full layout', () => {
         const full = [ CustomHomeSectionType.ContinueWatching, ...Array(9).fill(HomeSectionType.LatestMedia) ];
         expect(toServerSections(full)).toHaveLength(HOME_LAYOUT_LENGTH);
+    });
+});
+
+describe('resolveHomeLayout', () => {
+    it('prefers the saved layout', () => {
+        expect(resolveHomeLayout('latestmedia', [ HomeSectionType.Resume ])[0])
+            .toBe(HomeSectionType.LatestMedia);
+    });
+
+    it('uses the new default for users on the server defaults', () => {
+        expect(resolveHomeLayout(null, [ ...DEFAULT_SECTIONS ])).toEqual(DEFAULT_HOME_LAYOUT);
+        expect(resolveHomeLayout(undefined, [])).toEqual(DEFAULT_HOME_LAYOUT);
+        expect(resolveHomeLayout(null, [ 'folders', '' ].concat(DEFAULT_SECTIONS.slice(2)))
+            .slice(0, 2)).toEqual(DEFAULT_HOME_LAYOUT.slice(0, 2));
+    });
+
+    it('keeps a layout the user customized before', () => {
+        const legacy = [ HomeSectionType.LatestMedia, HomeSectionType.NextUp ];
+        const layout = resolveHomeLayout(null, legacy);
+        expect(layout.slice(0, 3)).toEqual([
+            HomeSectionType.LatestMedia,
+            HomeSectionType.NextUp,
+            DEFAULT_SECTIONS[2]
+        ]);
+        expect(layout).toHaveLength(HOME_LAYOUT_LENGTH);
     });
 });

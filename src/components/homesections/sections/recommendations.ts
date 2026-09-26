@@ -17,20 +17,15 @@ import globalize from 'lib/globalize';
 import ServerConnections from 'lib/jellyfin-apiclient/ServerConnections';
 import { queryClient } from 'utils/query/queryClient';
 
+import { interleaveRows, MAX_ROWS, type RecommendationRow } from './recommendationRows';
 import type { SectionContainerElement, SectionOptions } from './section';
 
-const MAX_ROWS = 5;
 const MOVIE_CATEGORY_LIMIT = 3;
 const SERIES_ROW_LIMIT = 2;
 /** Recently watched shows to try, since some have no similar shows. */
 const SERIES_CANDIDATE_LIMIT = 6;
 const ITEMS_PER_ROW = 16;
 const STALE_TIME = 5 * 60 * 1000;
-
-export interface RecommendationRow {
-    title: string
-    items: BaseItemDto[]
-}
 
 function getMovieRowTitle(recommendation: RecommendationDto) {
     const name = recommendation.BaselineItemName ?? '';
@@ -48,17 +43,6 @@ function getMovieRowTitle(recommendation: RecommendationDto) {
         default:
             return name;
     }
-}
-
-/** Alternates movie and show rows so neither dominates the home screen. */
-export function interleaveRows(movieRows: RecommendationRow[], seriesRows: RecommendationRow[]) {
-    const rows: RecommendationRow[] = [];
-    const length = Math.max(movieRows.length, seriesRows.length);
-    for (let i = 0; i < length; i++) {
-        if (movieRows[i]) rows.push(movieRows[i]);
-        if (seriesRows[i]) rows.push(seriesRows[i]);
-    }
-    return rows.filter(row => row.items.length).slice(0, MAX_ROWS);
 }
 
 async function fetchMovieRows(api: Api, userId: string): Promise<RecommendationRow[]> {
