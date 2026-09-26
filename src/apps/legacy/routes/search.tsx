@@ -19,7 +19,7 @@ const Search: FC = () => {
     const parentIdQuery = searchParams.get(PARENT_ID_PARAM) || undefined;
     const collectionTypeQuery = (searchParams.get(COLLECTION_TYPE_PARAM) || undefined) as CollectionType | undefined;
     const [ query, setQuery ] = useSearchParam(QUERY_PARAM);
-    const [debouncedQuery] = useDebounceValue(query, 500);
+    const [debouncedQuery] = useDebounceValue(query, 250);
 
     return (
         <Page
