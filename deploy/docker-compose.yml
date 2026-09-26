@@ -1,0 +1,46 @@
+# Jellyfin server for a Beelink mini PC (Intel or AMD).
+# See README.md in this folder for the full setup walkthrough.
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: "${PUID}:${PGID}"
+    group_add:
+      # Lets Jellyfin use the GPU for transcoding. Find the value with:
+      #   getent group render | cut -d: -f3
+      - "${RENDER_GID}"
+    devices:
+      # Intel Quick Sync and AMD VA-API both live here.
+      - /dev/dri:/dev/dri
+    ports:
+      - "8096:8096"
+    environment:
+      - TZ=${TZ}
+      # Public URL, used in invite links and casting. Leave blank if not using a domain.
+      - JELLYFIN_PublishedServerUrl=${PUBLIC_URL}
+    volumes:
+      - ./config:/config
+      - ./cache:/cache
+      - ${MEDIA_DIR}:/media:ro
+      # Uncomment once our custom web client is built (see README, "Custom web client").
+      # - ./web:/jellyfin/jellyfin-web:ro
+
+  # Only needed for the "own domain" remote-access option.
+  # Start with: docker compose --profile caddy up -d
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    profiles: ["caddy"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-data:/data
+      - ./caddy-config:/config

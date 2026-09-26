@@ -1,0 +1,5 @@
+# Caddy fetches and renews HTTPS certificates automatically.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy jellyfin:8096
+}
