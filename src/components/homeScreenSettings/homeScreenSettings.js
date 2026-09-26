@@ -10,7 +10,7 @@ import focusManager from '../focusManager';
 import globalize from '../../lib/globalize';
 import loading from '../loading/loading';
 import Events from '../../utils/events.ts';
-import homeSections from '../homesections/homesections';
+import { getHomeLayout, saveHomeLayout } from '../homesections/homeLayout';
 import dom from '../../utils/dom';
 import '../listview/listview.scss';
 import '../../elements/emby-select/emby-select';
@@ -323,21 +323,9 @@ function renderViewOrder(context, user, result) {
 }
 
 function updateHomeSectionValues(context, userSettings) {
+    const layout = getHomeLayout(userSettings);
     for (let i = 1; i <= numConfigurableSections; i++) {
-        const select = context.querySelector(`#selectHomeSection${i}`);
-        const defaultValue = homeSections.getDefaultSection(i - 1);
-
-        const option = select.querySelector(`option[value="${defaultValue}"]`) || select.querySelector('option[value=""]');
-
-        const userValue = userSettings.get(`homesection${i - 1}`);
-
-        if (option) option.value = '';
-
-        if (userValue === defaultValue || !userValue) {
-            select.value = '';
-        } else {
-            select.value = userValue;
-        }
+        context.querySelector(`#selectHomeSection${i}`).value = layout[i - 1];
     }
 
     context.querySelector('.selectTVHomeScreen').value = userSettings.get('tvhome') || '';
@@ -507,16 +495,11 @@ async function saveUser(context, user, userSettingsInstance, apiClient) {
 
     userSettingsInstance.set('tvhome', context.querySelector('.selectTVHomeScreen').value);
 
-    userSettingsInstance.set('homesection0', context.querySelector('#selectHomeSection1').value);
-    userSettingsInstance.set('homesection1', context.querySelector('#selectHomeSection2').value);
-    userSettingsInstance.set('homesection2', context.querySelector('#selectHomeSection3').value);
-    userSettingsInstance.set('homesection3', context.querySelector('#selectHomeSection4').value);
-    userSettingsInstance.set('homesection4', context.querySelector('#selectHomeSection5').value);
-    userSettingsInstance.set('homesection5', context.querySelector('#selectHomeSection6').value);
-    userSettingsInstance.set('homesection6', context.querySelector('#selectHomeSection7').value);
-    userSettingsInstance.set('homesection7', context.querySelector('#selectHomeSection8').value);
-    userSettingsInstance.set('homesection8', context.querySelector('#selectHomeSection9').value);
-    userSettingsInstance.set('homesection9', context.querySelector('#selectHomeSection10').value);
+    const layout = [];
+    for (i = 1; i <= numConfigurableSections; i++) {
+        layout.push(context.querySelector(`#selectHomeSection${i}`).value);
+    }
+    saveHomeLayout(userSettingsInstance, layout);
 
     const selectLandings = context.querySelectorAll('.selectLanding');
     for (i = 0, length = selectLandings.length; i < length; i++) {
