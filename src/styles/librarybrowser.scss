@@ -1082,6 +1082,58 @@ div.itemDetailGalleryLink.defaultCardBackground {
     font-weight: 400;
 }
 
+// Plex-style labeled Play / Resume button
+.detailButton.detailButton-primary {
+    flex-direction: column;
+    align-items: stretch;
+    margin-right: 0.5em !important;
+    padding: 0.55em 1.2em 0.55em 0.9em !important;
+    border-radius: 0.3em;
+    overflow: hidden;
+
+    [dir="rtl"] & {
+        margin-right: 0 !important;
+        margin-left: 0.5em !important;
+        padding: 0.55em 0.9em 0.55em 1.2em !important;
+    }
+
+    .detailButton-content {
+        flex-direction: row;
+        gap: 0.4em;
+    }
+
+    .detailButton-labels {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: start;
+        line-height: 1.25;
+    }
+
+    .detailButton-label {
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .detailButton-subLabel {
+        font-size: 80%;
+        opacity: 0.85;
+        white-space: nowrap;
+    }
+}
+
+.detailButton-progress {
+    height: 0.2em;
+    margin-top: 0.45em;
+    border-radius: 0.1em;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.detailButton-progressBar {
+    height: 100%;
+    background: currentColor;
+}
+
 @media all and (max-width: 62.5em) {
     .detailButtonHideonMobile {
         display: none !important;

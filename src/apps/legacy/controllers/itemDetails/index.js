@@ -42,6 +42,8 @@ import Events from 'utils/events';
 import { getItemBackdropImageUrl } from 'utils/jellyfin-apiclient/backdropImage';
 import { OutboundWebSocketMessageType } from '@jellyfin/sdk/lib/websocket';
 
+import { getFeaturedPeople, getResumeInfo, splitMinutes } from './detailsInfo';
+
 import 'elements/emby-itemscontainer/emby-itemscontainer';
 import 'elements/emby-checkbox/emby-checkbox';
 import 'elements/emby-button/emby-button';
@@ -366,7 +368,45 @@ function reloadPlayButtons(page, item) {
         hideAll(page, 'btnShuffle');
     }
 
+    updatePrimaryPlayButton(page, item);
+
     return canPlay;
+}
+
+function getTimeLeftText(minutesLeft) {
+    const { hours, minutes } = splitMinutes(minutesLeft);
+    return hours ?
+        globalize.translate('ValueHoursMinutesLeft', hours, minutes) :
+        globalize.translate('ValueMinutesLeft', minutes);
+}
+
+/** Labels the Play button like Plex: "Play", or "Resume from 12:34" with time left and progress. */
+function updatePrimaryPlayButton(page, item) {
+    const resumeInfo = item.IsFolder || item.Type === BaseItemKind.Program ? null : getResumeInfo(item);
+
+    for (const btnPlay of page.querySelectorAll('.btnPlay.detailButton-primary')) {
+        const label = btnPlay.querySelector('.detailButton-label');
+        const subLabel = btnPlay.querySelector('.detailButton-subLabel');
+        const progress = btnPlay.querySelector('.detailButton-progress');
+        const progressBar = btnPlay.querySelector('.detailButton-progressBar');
+
+        if (label) {
+            label.textContent = resumeInfo ?
+                globalize.translate('ResumeAt', datetime.getDisplayRunningTime(resumeInfo.positionTicks)) :
+                globalize.translate('Play');
+        }
+
+        if (subLabel) {
+            subLabel.textContent = resumeInfo?.minutesLeft ? getTimeLeftText(resumeInfo.minutesLeft) : '';
+            subLabel.classList.toggle('hide', !resumeInfo?.minutesLeft);
+        }
+
+        if (progress && progressBar) {
+            const percent = resumeInfo?.progressPercent;
+            progress.classList.toggle('hide', percent == null);
+            progressBar.style.width = percent == null ? '' : `${percent}%`;
+        }
+    }
 }
 
 function reloadUserDataButtons(page, item) {
@@ -859,7 +899,7 @@ function setInitialCollapsibleState(page, item, apiClient, context, user) {
 
     renderScenes(page, item);
 
-    if (item.SpecialFeatureCount > 0) {
+    if (item.SpecialFeatureCount > 0 || item.LocalTrailerCount > 0) {
         page.querySelector('#specialsCollapsible').classList.remove('hide');
         renderSpecials(page, item, user);
     } else {
@@ -1034,6 +1074,7 @@ function renderDetails(page, instance, item, apiClient, context) {
 
     renderItemCollections(page, item, apiClient, context);
     renderSimilarItems(page, item, context);
+    renderMoreFromPeople(page, item, apiClient, context);
     renderMoreFromSeason(page, item, apiClient);
     renderMoreFromArtist(page, item, apiClient);
     renderChannelGuide(page, apiClient, item);
@@ -1238,6 +1279,68 @@ function renderItemCollections(page, item, apiClient, context) {
         }).catch(() => {
             section.classList.add('hide');
         });
+}
+
+function renderPersonRow(section, item, person, title, apiClient, context) {
+    section.setAttribute('data-itemid', item.Id);
+
+    if (!person) {
+        section.classList.add('hide');
+        return;
+    }
+
+    apiClient.getItems(apiClient.getCurrentUserId(), {
+        PersonIds: person.Id,
+        IncludeItemTypes: 'Movie,Series',
+        Recursive: true,
+        ExcludeItemIds: item.Id,
+        SortBy: 'CommunityRating,SortName',
+        SortOrder: 'Descending',
+        Limit: 12,
+        Fields: 'PrimaryImageAspectRatio,CanDelete',
+        EnableTotalRecordCount: false
+    }).then(function (result) {
+        // The page may have moved on to another item while this loaded.
+        if (section.getAttribute('data-itemid') !== item.Id) return;
+
+        const items = result.Items || [];
+        section.classList.toggle('hide', !items.length);
+        if (!items.length) return;
+
+        section.querySelector('.sectionTitle').textContent = title;
+        const itemsContainer = section.querySelector('.itemsContainer');
+        itemsContainer.innerHTML = cardBuilder.getCardsHtml({
+            items,
+            shape: 'autooverflow',
+            centerText: true,
+            showTitle: true,
+            showYear: true,
+            context,
+            lazy: true,
+            showDetailsMenu: true,
+            overlayPlayButton: true,
+            overlayText: false
+        });
+        imageLoader.lazyChildren(itemsContainer);
+    }).catch(function (err) {
+        console.error('[ItemDetails] failed to load items for person', err);
+        section.classList.add('hide');
+    });
+}
+
+/** Plex-style "Directed by" and "Starring" rows. */
+function renderMoreFromPeople(page, item, apiClient, context) {
+    const directorSection = page.querySelector('#moreFromDirectorCollapsible');
+    const actorSection = page.querySelector('#moreWithActorCollapsible');
+    if (!directorSection || !actorSection) return;
+
+    const isSupported = item.Type === BaseItemKind.Movie || item.Type === BaseItemKind.Series;
+    const { director, leadActor } = isSupported ? getFeaturedPeople(item.People) : {};
+    // Skip the actor row when one person both directed and starred.
+    const actor = leadActor && leadActor.Id !== director?.Id ? leadActor : undefined;
+
+    renderPersonRow(directorSection, item, director, director && globalize.translate('RecommendationDirectedBy', director.Name), apiClient, context);
+    renderPersonRow(actorSection, item, actor, actor && globalize.translate('RecommendationStarring', actor.Name), apiClient, context);
 }
 
 function renderSimilarItems(page, item, context) {
@@ -1846,9 +1949,22 @@ function getVideosHtml(items) {
 }
 
 function renderSpecials(page, item, user) {
-    ServerConnections.getApiClient(item.ServerId).getSpecialFeatures(user.Id, item.Id).then(function (specials) {
+    const apiClient = ServerConnections.getApiClient(item.ServerId);
+    const specialsCollapsible = page.querySelector('#specialsCollapsible');
+    specialsCollapsible.setAttribute('data-itemid', item.Id);
+
+    // Like Plex, trailers lead the extras row.
+    Promise.all([
+        item.LocalTrailerCount > 0 ? apiClient.getLocalTrailers(user.Id, item.Id).catch(() => []) : [],
+        item.SpecialFeatureCount > 0 ? apiClient.getSpecialFeatures(user.Id, item.Id).catch(() => []) : []
+    ]).then(function ([trailers, specials]) {
+        if (specialsCollapsible.getAttribute('data-itemid') !== item.Id) return;
+
+        const extras = [...trailers, ...specials];
+        specialsCollapsible.classList.toggle('hide', !extras.length);
+
         const specialsContent = page.querySelector('#specialsContent');
-        specialsContent.innerHTML = getVideosHtml(specials);
+        specialsContent.innerHTML = getVideosHtml(extras);
         imageLoader.lazyChildren(specialsContent);
     });
 }
