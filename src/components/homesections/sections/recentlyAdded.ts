@@ -4,6 +4,7 @@ import { CollectionType } from '@jellyfin/sdk/lib/generated-client/models/collec
 import { ImageType } from '@jellyfin/sdk/lib/generated-client/models/image-type';
 import { ItemFields } from '@jellyfin/sdk/lib/generated-client/models/item-fields';
 import type { UserDto } from '@jellyfin/sdk/lib/generated-client/models/user-dto';
+import { getLibraryApi } from '@jellyfin/sdk/lib/utils/api/library-api';
 import escapeHtml from 'escape-html';
 import type { ApiClient } from 'jellyfin-apiclient';
 
@@ -16,6 +17,7 @@ import globalize from 'lib/globalize';
 import ServerConnections from 'lib/jellyfin-apiclient/ServerConnections';
 import { queryClient } from 'utils/query/queryClient';
 
+import { getRecentlyAddedShowsRequest } from './recentlyAddedShows';
 import type { SectionContainerElement, SectionOptions } from './section';
 
 function getFetchLatestItemsFn(
@@ -57,6 +59,17 @@ function getFetchLatestItemsFn(
             ],
             parentId
         };
+
+        if (collectionType === CollectionType.Tvshows && api) {
+            return getLibraryApi(api)
+                .getItems(getRecentlyAddedShowsRequest(
+                    user?.Id,
+                    parentId,
+                    limit,
+                    !!user?.Configuration?.HidePlayedInLatest
+                ))
+                .then(response => response.data.Items ?? []);
+        }
 
         return queryClient
             .fetchQuery(getLatestMediaQuery(api, options));
