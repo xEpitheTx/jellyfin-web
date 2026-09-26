@@ -1,0 +1,6 @@
+.env
+config/
+cache/
+web/
+caddy-data/
+caddy-config/
