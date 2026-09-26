@@ -116,7 +116,24 @@ The first run also switches `docker-compose.yml` over to the new interface. Refr
 
 If something looks wrong, go back to the previous version with `./update-web.sh --rollback`. The Fire Stick and phone apps are unaffected either way.
 
-## 9. Updating Jellyfin
+## 9. Fire TV Stick app
+
+Our Fire Stick app shows the same Plex-style home rows as the web interface. It installs next to the regular Jellyfin app as **Jellyfin+**.
+
+One-time setup on the Fire Stick:
+
+1. **Settings → My Fire TV → About**, then click **Fire TV Stick** 7 times until it says you're a developer.
+2. **Settings → My Fire TV → Developer options → Install unknown apps**, and turn it on for **Downloader** (install Downloader from the Amazon Appstore first if it isn't listed).
+3. Open **Downloader**, type this address, and install when prompted:
+
+   `https://github.com/xEpitheTx/jellyfin-androidtv/releases/download/plex-latest/jellyfin-androidtv-plex.apk`
+
+4. Open **Jellyfin+**, add your server (`http://<beelink-ip>:8096`, or your Tailscale / domain address away from home) and sign in.
+
+To update, repeat step 3; your sign-in is kept.
+
+## 10. Updating Jellyfin
+
 
 ```sh
 cd ~/jellyfin-web/deploy
