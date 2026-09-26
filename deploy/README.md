@@ -27,7 +27,7 @@ curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER
 # Log out and back in so the group change takes effect.
 
-git clone -b deploy/beelink-server https://github.com/xEpitheTx/jellyfin-web.git
+git clone -b plex https://github.com/xEpitheTx/jellyfin-web.git
 cd jellyfin-web/deploy
 cp .env.example .env
 ```
@@ -102,7 +102,21 @@ Requires a public IP from your internet provider. To check: compare the "WAN IP"
 
 Don't use Cloudflare Tunnel for this. Cloudflare's terms prohibit video streaming on its free plan, and accounts get cut off.
 
-## 8. Updating
+## 8. Install our Plex-style web interface
+
+Our version of the web interface (merged Continue Watching, recommendations, Plex-style details page, typo-tolerant search) is built automatically whenever the `plex` branch changes. To install or update it:
+
+```sh
+cd ~/jellyfin-web/deploy
+git pull
+./update-web.sh
+```
+
+The first run also switches `docker-compose.yml` over to the new interface. Refresh the browser afterwards (Ctrl+Shift+R).
+
+If something looks wrong, go back to the previous version with `./update-web.sh --rollback`. The Fire Stick and phone apps are unaffected either way.
+
+## 9. Updating Jellyfin
 
 ```sh
 cd ~/jellyfin-web/deploy
@@ -110,7 +124,3 @@ docker compose pull && docker compose up -d
 ```
 
 Your settings and watch history live in `config/`. Back that folder up occasionally.
-
-## 9. Custom web client
-
-Once our Plex-style web interface is ready, this section will explain how to build it into `deploy/web/` and switch Jellyfin to serve it (the commented-out line in `docker-compose.yml`). The stock Jellyfin apps keep working either way.

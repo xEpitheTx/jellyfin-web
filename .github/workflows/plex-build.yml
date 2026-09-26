@@ -1,0 +1,57 @@
+name: Build Plex-style web client
+
+# Builds the "plex" branch and publishes it as the "plex-latest" release,
+# which deploy/update-web.sh downloads on the server.
+
+on:
+  push:
+    branches:
+      - plex
+  workflow_dispatch:
+
+concurrency:
+  group: plex-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run build:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build:production
+
+      - name: Package
+        run: tar -czf jellyfin-web-plex.tar.gz -C dist .
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete plex-latest --yes --cleanup-tag || true
+          gh release create plex-latest jellyfin-web-plex.tar.gz \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "Plex-style web client (latest)" \
+            --notes "Built automatically from the plex branch at ${{ github.sha }}. Install with deploy/update-web.sh."
