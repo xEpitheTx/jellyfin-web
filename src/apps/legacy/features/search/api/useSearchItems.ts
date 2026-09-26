@@ -1,7 +1,7 @@
 import { BaseItemKind } from '@jellyfin/sdk/lib/generated-client/models/base-item-kind';
 import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models/base-item-dto';
 import { CollectionType } from '@jellyfin/sdk/lib/generated-client/models/collection-type';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CardShape } from 'components/cardbuilder/utils/shape';
 import { useApi } from '../../../../../hooks/useApi';
 import { addSection, getCardOptionsFromType, getItemTypesFromCollectionType, getTitleFromType, isLivetv, isMovies, isMusic, isTVShows, sortSections } from '../utils/search';
@@ -11,6 +11,7 @@ import { useStudiosSearch } from './useStudiosSearch';
 import { useVideoSearch } from './useVideoSearch';
 import { Section } from '../types';
 import { useLiveTvSearch } from './useLiveTvSearch';
+import { fetchFuzzyMatchesSafely } from './fetchFuzzyMatches';
 import { fetchItemsByType } from './fetchItemsByType';
 import { useProgramsSearch } from './useProgramsSearch';
 import { LIVETV_CARD_OPTIONS } from '../constants/liveTvCardOptions';
@@ -28,6 +29,7 @@ export const useSearchItems = (
     const { data: liveTvSections, isPending: isLiveTvPending } = useLiveTvSearch(parentId, collectionType, searchTerm);
     const { api, user } = useApi();
     const userId = user?.Id;
+    const queryClient = useQueryClient();
 
     const isArtistsEnabled = !isArtistsPending || (collectionType && !isMusic(collectionType));
     const isPeopleEnabled = !isPeoplePending || (collectionType && !isMovies(collectionType) && !isTVShows(collectionType));
@@ -90,6 +92,13 @@ export const useSearchItems = (
                     }
                     addSection(sections, getTitleFromType(itemType), items, getCardOptionsFromType(itemType));
                 }
+            }
+
+            if (!sections.length) {
+                const closeMatches = await fetchFuzzyMatchesSafely(
+                    queryClient, api!, userId, itemTypes, parentId, searchTerm, signal
+                );
+                addSection(sections, 'HeaderDidYouMean', closeMatches, { showYear: true });
             }
 
             return sortSections(sections);
