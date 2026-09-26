@@ -25,8 +25,16 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-echo "Downloading web client..."
-curl -fsSL "$WEB_URL" -o "$tmp/web.tar.gz"
+echo "Downloading web client (about 35 MB)..."
+# Show progress, retry on network errors, and give up if the download stalls
+# (under 10 KB/s for a minute) instead of hanging forever.
+if ! curl -fL --progress-bar --retry 3 --retry-delay 5 --connect-timeout 20 \
+        --speed-limit 10240 --speed-time 60 "$WEB_URL" -o "$tmp/web.tar.gz"; then
+    echo "Download failed or stalled; nothing was changed. Check the server's internet connection and try again." >&2
+    exit 1
+fi
+
+echo "Unpacking..."
 mkdir "$tmp/web"
 tar -xzf "$tmp/web.tar.gz" -C "$tmp/web"
 
@@ -35,6 +43,7 @@ if [ ! -f "$tmp/web/index.html" ]; then
     exit 1
 fi
 
+echo "Installing..."
 rm -rf web.old
 if [ -d web ]; then
     mv web web.old
