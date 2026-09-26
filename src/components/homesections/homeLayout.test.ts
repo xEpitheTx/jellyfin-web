@@ -6,10 +6,14 @@ import {
     CustomHomeSectionType,
     DEFAULT_HOME_LAYOUT,
     HOME_LAYOUT_LENGTH,
+    HOME_LAYOUT_VERSION,
     parseHomeLayout,
     resolveHomeLayout,
+    serializeHomeLayout,
     toServerSections
 } from './homeLayout';
+
+const current = (rows: string) => `v${HOME_LAYOUT_VERSION}:${rows}`;
 
 describe('parseHomeLayout', () => {
     it('uses the default layout when nothing is saved', () => {
@@ -18,7 +22,7 @@ describe('parseHomeLayout', () => {
     });
 
     it('pads short layouts and replaces unknown rows', () => {
-        const layout = parseHomeLayout('continuewatching, bogus,latestmedia');
+        const layout = parseHomeLayout(current('continuewatching, bogus,latestmedia'));
         expect(layout).toHaveLength(HOME_LAYOUT_LENGTH);
         expect(layout.slice(0, 4)).toEqual([
             CustomHomeSectionType.ContinueWatching,
@@ -36,9 +40,7 @@ describe('parseHomeLayout', () => {
 
 describe('toServerSections', () => {
     it('maps custom rows to rows the server accepts', () => {
-        const sections = toServerSections(parseHomeLayout(
-            'continuewatching,latestmedia,recommendations'
-        ));
+        const sections = toServerSections(parseHomeLayout(current('continuewatching,latestmedia,recommendations')));
         expect(sections.slice(0, 4)).toEqual([
             HomeSectionType.Resume,
             HomeSectionType.NextUp,
@@ -48,8 +50,13 @@ describe('toServerSections', () => {
         expect(sections).toHaveLength(HOME_LAYOUT_LENGTH);
     });
 
+    it('drops rows other clients cannot show', () => {
+        expect(toServerSections(parseHomeLayout(current('watchlist,recommendations'))).slice(0, 2))
+            .toEqual([ HomeSectionType.None, HomeSectionType.None ]);
+    });
+
     it('does not duplicate Next Up when it is already in the layout', () => {
-        const sections = toServerSections(parseHomeLayout('continuewatching,nextup'));
+        const sections = toServerSections(parseHomeLayout(current('continuewatching,nextup')));
         expect(sections.filter(s => s === HomeSectionType.NextUp)).toHaveLength(1);
     });
 
@@ -81,5 +88,33 @@ describe('resolveHomeLayout', () => {
             DEFAULT_SECTIONS[2]
         ]);
         expect(layout).toHaveLength(HOME_LAYOUT_LENGTH);
+    });
+});
+
+describe('layout versions', () => {
+    it('adds rows introduced after an old saved layout, in a free slot', () => {
+        const layout = parseHomeLayout('continuewatching,latestmedia,recommendations');
+        expect(layout.slice(0, 4)).toEqual([
+            CustomHomeSectionType.ContinueWatching,
+            CustomHomeSectionType.Watchlist,
+            HomeSectionType.LatestMedia,
+            CustomHomeSectionType.Recommendations
+        ]);
+        expect(layout).toHaveLength(HOME_LAYOUT_LENGTH);
+    });
+
+    it('does not re-add a row the user removed after it was introduced', () => {
+        const saved = `v${HOME_LAYOUT_VERSION}:continuewatching,latestmedia`;
+        expect(parseHomeLayout(saved)).not.toContain(CustomHomeSectionType.Watchlist);
+    });
+
+    it('leaves a full layout alone', () => {
+        const full = Array(HOME_LAYOUT_LENGTH).fill(HomeSectionType.LatestMedia).join(',');
+        expect(parseHomeLayout(full)).not.toContain(CustomHomeSectionType.Watchlist);
+    });
+
+    it('round-trips a saved layout', () => {
+        const layout = parseHomeLayout('latestmedia,watchlist');
+        expect(parseHomeLayout(serializeHomeLayout(layout))).toEqual(layout);
     });
 });

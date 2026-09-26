@@ -25,6 +25,7 @@ import ItemDetailsMetadataList from 'components/itemDetails/ItemDetailsMetadataL
 import { playbackManager } from 'components/playback/playbackmanager';
 import { appRouter } from 'components/router/appRouter';
 import itemShortcuts from 'components/shortcuts';
+import toast from 'components/toast/toast';
 import { AppFeature } from 'constants/appFeature';
 import { EventType } from 'constants/eventType';
 import { ItemAction } from 'constants/itemAction';
@@ -41,6 +42,8 @@ import Dashboard from 'utils/dashboard';
 import Events from 'utils/events';
 import { getItemBackdropImageUrl } from 'utils/jellyfin-apiclient/backdropImage';
 import { OutboundWebSocketMessageType } from '@jellyfin/sdk/lib/websocket';
+
+import { canWatchlist, isInWatchlist, toggleWatchlist } from 'components/watchlist/watchlistStore';
 
 import { getFeaturedPeople, getResumeInfo, splitMinutes } from './detailsInfo';
 
@@ -409,6 +412,22 @@ function updatePrimaryPlayButton(page, item) {
     }
 }
 
+function updateWatchlistButtons(page, item) {
+    const isSupported = canWatchlist(item);
+    const isAdded = isSupported && isInWatchlist(userSettings, item.Id);
+
+    for (const btn of page.querySelectorAll('.btnWatchlist')) {
+        btn.classList.toggle('hide', !isSupported);
+        btn.title = globalize.translate(isAdded ? 'RemoveFromWatchlist' : 'AddToWatchlist');
+        btn.setAttribute('aria-pressed', String(isAdded));
+        const icon = btn.querySelector('.detailButton-icon');
+        if (icon) {
+            icon.classList.toggle('bookmark', isAdded);
+            icon.classList.toggle('bookmark_border', !isAdded);
+        }
+    }
+}
+
 function reloadUserDataButtons(page, item) {
     let i;
     let length;
@@ -425,6 +444,8 @@ function reloadUserDataButtons(page, item) {
             btnPlaystate.setItem(null);
         }
     }
+
+    updateWatchlistButtons(page, item);
 
     const btnUserRatings = page.querySelectorAll('.btnUserRating');
 
@@ -2148,6 +2169,13 @@ export default function (view, params) {
         });
     }
 
+    function onWatchlistClick() {
+        if (!currentItem?.Id) return;
+        const isAdded = toggleWatchlist(userSettings, currentItem.Id);
+        updateWatchlistButtons(view, currentItem);
+        toast(globalize.translate(isAdded ? 'AddedToWatchlist' : 'RemovedFromWatchlist'));
+    }
+
     function onPlayTrailerClick() {
         playTrailer();
     }
@@ -2233,6 +2261,7 @@ export default function (view, params) {
         bindAll(view, '.btnInstantMix', 'click', onInstantMixClick);
         bindAll(view, '.btnShuffle', 'click', onShuffleClick);
         bindAll(view, '.btnPlayTrailer', 'click', onPlayTrailerClick);
+        bindAll(view, '.btnWatchlist', 'click', onWatchlistClick);
         bindAll(view, '.btnCancelSeriesTimer', 'click', onCancelSeriesTimerClick);
         bindAll(view, '.btnCancelTimer', 'click', onCancelTimerClick);
         bindAll(view, '.btnDownload', 'click', onDownloadClick);

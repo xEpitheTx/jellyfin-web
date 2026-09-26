@@ -16,6 +16,7 @@ import { loadNextUp } from './sections/nextUp';
 import { loadRecentlyAdded } from './sections/recentlyAdded';
 import { loadRecommendations } from './sections/recommendations';
 import { loadResume } from './sections/resume';
+import { loadWatchlist } from './sections/watchlist';
 
 import 'elements/emby-button/paper-icon-button-light';
 import 'elements/emby-itemscontainer/emby-itemscontainer';
@@ -163,6 +164,9 @@ function loadSection(page, apiClient, user, userSettings, userViews, section, in
             break;
         case CustomHomeSectionType.ContinueWatching:
             loadContinueWatching(elem, apiClient, userSettings, options);
+            break;
+        case CustomHomeSectionType.Watchlist:
+            loadWatchlist(elem, apiClient, userSettings, options);
             break;
         case CustomHomeSectionType.Recommendations:
             loadRecommendations(elem, apiClient, options);
